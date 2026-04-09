@@ -10,6 +10,9 @@
     <MajorUpgrade DowngradeErrorMessage="A newer version of Save Button is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
+    <Icon Id="AppIcon" SourceFile="src\Kaya.Wpf\app.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+
     <StandardDirectory Id="LocalAppDataFolder">
       <Directory Id="INSTALLFOLDER" Name="SaveButton">
         <Component Id="MainExecutable" Guid="*">
