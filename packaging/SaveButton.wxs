@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="Save Button"
+           Manufacturer="Save Button"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+           Scope="perUser">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Save Button is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="INSTALLFOLDER" Name="SaveButton">
+        <Component Id="MainExecutable" Guid="*">
+          <File Id="SaveButtonExe"
+                Source="$(var.PublishDir)\SaveButton.exe"
+                KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut" Guid="*">
+        <Shortcut Id="SaveButtonShortcut"
+                  Name="Save Button"
+                  Target="[INSTALLFOLDER]SaveButton.exe"
+                  WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\SaveButton"
+                       Name="installed"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcut" Guid="*">
+        <Shortcut Id="DesktopShortcutLink"
+                  Name="Save Button"
+                  Target="[INSTALLFOLDER]SaveButton.exe"
+                  WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\SaveButton"
+                       Name="desktopShortcut"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="Save Button" Level="1">
+      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <Feature Id="DesktopShortcut" Title="Desktop Shortcut" Description="Create a shortcut on the desktop." Level="1">
+        <ComponentRef Id="DesktopShortcut" />
+      </Feature>
+    </Feature>
+
+    <ui:WixUI Id="WixUI_FeatureTree" />
+    <WixVariable Id="WixUILicenseRtf" Value="packaging\license.rtf" />
+  </Package>
+</Wix>

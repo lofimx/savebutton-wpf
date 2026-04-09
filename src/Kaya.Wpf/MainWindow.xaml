@@ -1,0 +1,182 @@
+<Window x:Class="Kaya.Wpf.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Save Button" Height="550" Width="500"
+        MinHeight="450" MinWidth="360"
+        WindowStartupLocation="CenterScreen"
+        Icon="app.ico"
+        PreviewKeyDown="OnPreviewKeyDown">
+    <Window.CommandBindings>
+        <CommandBinding Command="ApplicationCommands.Close" Executed="OnClose" />
+    </Window.CommandBindings>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Menu Bar -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Menu Grid.Column="0">
+                <MenuItem Header="_File">
+                    <MenuItem Header="_New Save" InputGestureText="Ctrl+N" Click="OnNewSave" />
+                    <Separator />
+                    <MenuItem Header="_Preferences" InputGestureText="Ctrl+," Click="OnPreferences" />
+                    <Separator />
+                    <MenuItem Header="_About Save Button" Click="OnAbout" />
+                    <Separator />
+                    <MenuItem Header="_Quit" InputGestureText="Ctrl+Q" Click="OnQuit" />
+                </MenuItem>
+            </Menu>
+            <!-- Sync Spinner: 270° arc, 16x16, stroke-based -->
+            <Canvas Grid.Column="1" Width="16" Height="16" Margin="0,0,8,0"
+                    VerticalAlignment="Center"
+                    x:Name="SyncSpinner" Visibility="Collapsed"
+                    RenderTransformOrigin="0.5,0.5">
+                <Canvas.RenderTransform>
+                    <RotateTransform />
+                </Canvas.RenderTransform>
+                <Path Stroke="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}"
+                      StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round">
+                    <Path.Data>
+                        <!-- 270° arc: top-center to left-center via right and bottom -->
+                        <PathGeometry>
+                            <PathFigure StartPoint="8,1" IsClosed="False">
+                                <ArcSegment Point="1,8" Size="7,7"
+                                            SweepDirection="Clockwise" IsLargeArc="True" />
+                            </PathFigure>
+                        </PathGeometry>
+                    </Path.Data>
+                </Path>
+            </Canvas>
+        </Grid>
+
+        <!-- Main Content -->
+        <Grid Grid.Row="1" Margin="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Search -->
+            <TextBox Grid.Row="0" x:Name="SearchEntry" Margin="0,0,0,15"
+                     TextChanged="OnSearchTextChanged" />
+
+            <!-- Results Stack -->
+            <Grid Grid.Row="1">
+                <!-- Empty State -->
+                <StackPanel x:Name="EmptyState" VerticalAlignment="Center"
+                            HorizontalAlignment="Center">
+                    <TextBlock Text="Search your saves" FontSize="16"
+                               Foreground="Gray" HorizontalAlignment="Center" />
+                    <TextBlock Text="Type to search bookmarks, notes, and files"
+                               Foreground="Gray" HorizontalAlignment="Center"
+                               Margin="0,5,0,0" FontSize="12" />
+                </StackPanel>
+
+                <!-- No Results State -->
+                <TextBlock x:Name="NoResultsState" Text="No results found"
+                           FontSize="14" Foreground="Gray"
+                           VerticalAlignment="Center" HorizontalAlignment="Center"
+                           Visibility="Collapsed" />
+
+                <!-- Results List -->
+                <ListBox x:Name="ResultsList" Visibility="Collapsed"
+                         BorderThickness="0" Background="Transparent"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         MouseDoubleClick="OnResultActivated"
+                         KeyDown="OnResultsKeyDown">
+
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border Padding="10,8" Margin="0,2" CornerRadius="6">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Type Icon -->
+                                    <TextBlock Grid.Column="0" Grid.RowSpan="3"
+                                               Text="{Binding TypeIcon}" FontSize="20"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,10,0" />
+
+                                    <!-- Title (only for files) -->
+                                    <TextBlock Grid.Column="1" Grid.Row="0"
+                                               Text="{Binding DisplayTitle}"
+                                               FontWeight="SemiBold" FontSize="13"
+                                               TextTrimming="CharacterEllipsis"
+                                               Visibility="{Binding TitleVisibility}" />
+
+                                    <!-- Content Preview -->
+                                    <TextBlock Grid.Column="1" Grid.Row="1"
+                                               Text="{Binding ContentPreview}"
+                                               Foreground="Gray" FontSize="11"
+                                               TextTrimming="CharacterEllipsis"
+                                               MaxHeight="32" />
+
+                                    <!-- Date: below preview, shown on row hover -->
+                                    <TextBlock Grid.Column="1" Grid.Row="2"
+                                               Text="{Binding Date}"
+                                               Foreground="Gray" FontSize="10"
+                                               Margin="0,2,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Hidden" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsMouseOver,
+                                                        RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                                                        Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Grid>
+
+        <!-- FAB: Floating Action Button -->
+        <Button Grid.Row="1" x:Name="FabButton" Content="+" Click="OnNewSave"
+                Width="56" Height="56" FontSize="28" FontWeight="Bold"
+                Foreground="White"
+                Background="#FF0078D4"
+                HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                Margin="0,0,30,30"
+                ToolTip="New Save (Ctrl+N)">
+            <Button.Resources>
+                <Style TargetType="Border">
+                    <Setter Property="CornerRadius" Value="28" />
+                </Style>
+            </Button.Resources>
+        </Button>
+
+        <!-- Toast/Status Bar -->
+        <Border Grid.Row="2" x:Name="ToastBorder" Background="#FF4CAF50"
+                Padding="10,6" Visibility="Collapsed">
+            <TextBlock x:Name="ToastText" Foreground="White"
+                       HorizontalAlignment="Center" FontSize="13" />
+        </Border>
+    </Grid>
+</Window>

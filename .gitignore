@@ -1,0 +1,49 @@
+## .NET / Visual Studio
+**/bin/
+**/obj/
+!bin/
+!bin/SvgToIco/
+!bin/SvgToIco/Program.cs
+!bin/SvgToIco/SvgToIco.csproj
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+
+## NuGet
+**/packages/
+*.nupkg
+**/project.assets.json
+**/project.nuget.cache
+
+## Build results
+[Bb]uild[Ll]og.*
+*.dll
+*.exe
+*.pdb
+*.cache
+
+## Visual Studio
+.vs/
+*.rsuser
+*.sln.docstates
+launchSettings.json
+
+## Rider
+.idea/
+
+## OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+/flargon
+/tmp
+
+AGENTS.md
+CLAUDE.md
+/.claude
