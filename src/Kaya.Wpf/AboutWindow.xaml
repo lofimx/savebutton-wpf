@@ -9,7 +9,7 @@
         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
             <TextBlock Text="Save Button" FontSize="24" FontWeight="Bold"
                        HorizontalAlignment="Center" Margin="0,0,0,10" />
-            <TextBlock Text="Version 0.2.4" HorizontalAlignment="Center"
+            <TextBlock Text="Version 0.2.5" HorizontalAlignment="Center"
                        Margin="0,0,0,15" />
             <TextBlock Text="A bookmarking and notes app."
                        HorizontalAlignment="Center" Margin="0,0,0,15" />
