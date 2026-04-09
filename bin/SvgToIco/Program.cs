@@ -5,8 +5,9 @@ using Svg;
 
 if (args.Length < 2)
 {
-    Console.Error.WriteLine("Usage: SvgToIco <input.svg> <output.ico> [size1,size2,...]");
+    Console.Error.WriteLine("Usage: SvgToIco <input.svg|input.png> <output.ico> [size1,size2,...]");
     Console.Error.WriteLine("  Sizes default to: 16,32,48,256");
+    Console.Error.WriteLine("  Accepts SVG or PNG input (PNG recommended for complex SVGs)");
     Console.Error.WriteLine();
     Console.Error.WriteLine("Can also convert to PNG:");
     Console.Error.WriteLine("  SvgToIco <input.svg> <output.png> [size]");
@@ -15,6 +16,7 @@ if (args.Length < 2)
 
 var inputPath = args[0];
 var outputPath = args[1];
+var inputExt = Path.GetExtension(inputPath).ToLowerInvariant();
 var outputExt = Path.GetExtension(outputPath).ToLowerInvariant();
 
 if (!File.Exists(inputPath))
@@ -23,32 +25,70 @@ if (!File.Exists(inputPath))
     return 1;
 }
 
-var svgDoc = SvgDocument.Open(inputPath);
+if (inputExt == ".png")
+{
+    if (outputExt != ".ico")
+    {
+        Console.Error.WriteLine("PNG input only supports ICO output.");
+        return 1;
+    }
 
-if (outputExt == ".png")
-{
-    var size = args.Length >= 3 ? int.Parse(args[2]) : 256;
-    using var bitmap = RenderSvg(svgDoc, size);
-    bitmap.Save(outputPath, ImageFormat.Png);
-    Console.WriteLine($"Saved {size}x{size} PNG: {outputPath}");
-}
-else if (outputExt == ".ico")
-{
     var sizes = args.Length >= 3
         ? args[2].Split(',').Select(int.Parse).ToArray()
         : new[] { 16, 32, 48, 256 };
 
+    using var sourceBitmap = new Bitmap(inputPath);
     using var output = File.Create(outputPath);
-    WriteIco(output, svgDoc, sizes);
-    Console.WriteLine($"Saved ICO ({string.Join(",", sizes)}): {outputPath}");
+    WriteIcoFromBitmap(output, sourceBitmap, sizes);
+    Console.WriteLine($"Saved ICO ({string.Join(",", sizes)}) from PNG: {outputPath}");
+}
+else if (inputExt == ".svg")
+{
+    var svgDoc = SvgDocument.Open(inputPath);
+
+    if (outputExt == ".png")
+    {
+        var size = args.Length >= 3 ? int.Parse(args[2]) : 256;
+        using var bitmap = RenderSvg(svgDoc, size);
+        bitmap.Save(outputPath, ImageFormat.Png);
+        Console.WriteLine($"Saved {size}x{size} PNG: {outputPath}");
+    }
+    else if (outputExt == ".ico")
+    {
+        var sizes = args.Length >= 3
+            ? args[2].Split(',').Select(int.Parse).ToArray()
+            : new[] { 16, 32, 48, 256 };
+
+        using var output = File.Create(outputPath);
+        WriteIcoFromSvg(output, svgDoc, sizes);
+        Console.WriteLine($"Saved ICO ({string.Join(",", sizes)}): {outputPath}");
+    }
+    else
+    {
+        Console.Error.WriteLine($"Unsupported output format: {outputExt}");
+        return 1;
+    }
 }
 else
 {
-    Console.Error.WriteLine($"Unsupported output format: {outputExt}");
+    Console.Error.WriteLine($"Unsupported input format: {inputExt} (use .svg or .png)");
     return 1;
 }
 
 return 0;
+
+static Bitmap ResizeBitmap(Bitmap source, int size)
+{
+    var bitmap = new Bitmap(size, size, PixelFormat.Format32bppArgb);
+    bitmap.SetResolution(96, 96);
+    using var g = Graphics.FromImage(bitmap);
+    g.SmoothingMode = SmoothingMode.HighQuality;
+    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+    g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+    g.CompositingQuality = CompositingQuality.HighQuality;
+    g.DrawImage(source, 0, 0, size, size);
+    return bitmap;
+}
 
 static Bitmap RenderSvg(SvgDocument svg, int size)
 {
@@ -64,18 +104,33 @@ static Bitmap RenderSvg(SvgDocument svg, int size)
     return bitmap;
 }
 
-static void WriteIco(Stream output, SvgDocument svg, int[] sizes)
+static List<byte[]> RenderSizesToPng(Func<int, Bitmap> renderFunc, int[] sizes)
 {
-    // Render each size to PNG bytes
     var pngEntries = new List<byte[]>();
     foreach (var size in sizes)
     {
-        using var bitmap = RenderSvg(svg, size);
+        using var bitmap = renderFunc(size);
         using var ms = new MemoryStream();
         bitmap.Save(ms, ImageFormat.Png);
         pngEntries.Add(ms.ToArray());
     }
+    return pngEntries;
+}
 
+static void WriteIcoFromBitmap(Stream output, Bitmap source, int[] sizes)
+{
+    var pngEntries = RenderSizesToPng(size => ResizeBitmap(source, size), sizes);
+    WriteIcoData(output, sizes, pngEntries);
+}
+
+static void WriteIcoFromSvg(Stream output, SvgDocument svg, int[] sizes)
+{
+    var pngEntries = RenderSizesToPng(size => RenderSvg(svg, size), sizes);
+    WriteIcoData(output, sizes, pngEntries);
+}
+
+static void WriteIcoData(Stream output, int[] sizes, List<byte[]> pngEntries)
+{
     using var writer = new BinaryWriter(output);
 
     // ICO header: reserved(2) + type(2) + count(2)
