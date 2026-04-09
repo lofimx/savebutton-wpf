@@ -41,9 +41,11 @@ Thumbs.db
 desktop.ini
 .DS_Store
 
+# flargon
 /flargon
 /tmp
 
+# slop PRs
 AGENTS.md
 CLAUDE.md
 /.claude
