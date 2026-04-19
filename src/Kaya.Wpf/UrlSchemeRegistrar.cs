@@ -1,5 +1,4 @@
 using System.IO;
-using System.Reflection;
 using Kaya.Core.Services;
 using Microsoft.Win32;
 
@@ -65,7 +64,7 @@ public static class UrlSchemeRegistrar
 
     private static string? CurrentExePath()
     {
-        var path = Environment.ProcessPath ?? Assembly.GetExecutingAssembly().Location;
+        var path = Environment.ProcessPath;
         if (string.IsNullOrEmpty(path)) return null;
         // Defensive: refuse to register if the process is dotnet.exe (shouldn't happen for WinExe).
         if (Path.GetFileName(path).Equals("dotnet.exe", StringComparison.OrdinalIgnoreCase))

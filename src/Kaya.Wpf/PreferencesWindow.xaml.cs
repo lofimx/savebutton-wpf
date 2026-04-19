@@ -1,5 +1,3 @@
-using System.IO;
-using System.Reflection;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using Kaya.Core.Models;
@@ -47,14 +45,23 @@ public partial class PreferencesWindow : Window
 
     private static BitmapImage? LoadIcon(string key)
     {
-        var assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
-        var path = Path.Combine(assemblyDir, "Assets", $"{key}.svg");
-        if (!File.Exists(path))
+        var uri = new Uri($"pack://application:,,,/Assets/{key}.svg", UriKind.Absolute);
+        try
         {
-            Logger.Instance.Log($"🟠 WARN PreferencesWindow missing icon asset: {path}");
+            var resource = Application.GetResourceStream(uri);
+            if (resource is null)
+            {
+                Logger.Instance.Log($"🟠 WARN PreferencesWindow missing icon resource: {uri}");
+                return null;
+            }
+            using var stream = resource.Stream;
+            return SvgRenderer.RenderToBitmap(stream, maxWidth: 64);
+        }
+        catch (Exception e)
+        {
+            Logger.Instance.Error($"🔴 ERROR PreferencesWindow LoadIcon({key}): {e.Message}");
             return null;
         }
-        return SvgRenderer.RenderToBitmap(path, maxWidth: 64);
     }
 
     private void LoadSettings()

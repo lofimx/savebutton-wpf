@@ -11,8 +11,19 @@ public static class SvgRenderer
         using var svg = new SKSvg();
         if (svg.Load(filePath) is null)
             return null;
+        return RenderPictureToBitmap(svg.Picture!, maxWidth);
+    }
 
-        var picture = svg.Picture!;
+    public static BitmapImage? RenderToBitmap(Stream stream, int maxWidth = 512)
+    {
+        using var svg = new SKSvg();
+        if (svg.Load(stream) is null)
+            return null;
+        return RenderPictureToBitmap(svg.Picture!, maxWidth);
+    }
+
+    private static BitmapImage? RenderPictureToBitmap(SkiaSharp.SKPicture picture, int maxWidth)
+    {
         var bounds = picture.CullRect;
         if (bounds.Width <= 0 || bounds.Height <= 0)
             return null;
