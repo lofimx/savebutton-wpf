@@ -1,5 +1,8 @@
+using System.IO;
+using System.Reflection;
 using System.Windows;
-using System.Windows.Threading;
+using System.Windows.Media.Imaging;
+using Kaya.Core.Models;
 using Kaya.Core.Services;
 
 namespace Kaya.Wpf;
@@ -7,19 +10,24 @@ namespace Kaya.Wpf;
 public partial class PreferencesWindow : Window
 {
     private readonly SettingsService _settingsService;
-    private readonly CredentialService _credentialService;
+    private readonly AuthService _authService;
     private readonly SyncService _syncService;
+    private bool _loaded;
 
-    public PreferencesWindow(SettingsService settingsService, CredentialService credentialService)
+    public PreferencesWindow(SettingsService settingsService, AuthService authService)
     {
         InitializeComponent();
         this.ApplyDarkTitleBar();
 
         _settingsService = settingsService;
-        _credentialService = credentialService;
-        _syncService = new SyncService(settingsService, credentialService);
+        _authService = authService;
+        _syncService = new SyncService(settingsService, authService);
 
+        LoadIcons();
         LoadSettings();
+        Render();
+
+        _loaded = true;
 
         _settingsService.Changed += OnSettingsChanged;
         Closed += (_, _) => _settingsService.Changed -= OnSettingsChanged;
@@ -27,68 +35,181 @@ public partial class PreferencesWindow : Window
 
     private void OnSettingsChanged()
     {
-        Dispatcher.Invoke(UpdateStatus);
+        Dispatcher.Invoke(Render);
+    }
+
+    private void LoadIcons()
+    {
+        GoogleIcon.Source = LoadIcon("icon_google");
+        MicrosoftIcon.Source = LoadIcon("icon_microsoft");
+        AppleIcon.Source = LoadIcon("icon_apple");
+    }
+
+    private static BitmapImage? LoadIcon(string key)
+    {
+        var assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
+        var path = Path.Combine(assemblyDir, "Assets", $"{key}.svg");
+        if (!File.Exists(path))
+        {
+            Logger.Instance.Log($"🟠 WARN PreferencesWindow missing icon asset: {path}");
+            return null;
+        }
+        return SvgRenderer.RenderToBitmap(path, maxWidth: 64);
     }
 
     private void LoadSettings()
     {
         ServerUrlEntry.Text = _settingsService.ServerUrl;
-        EmailEntry.Text = _settingsService.Email;
         NativeHostPortEntry.Text = _settingsService.NativeHostPort.ToString();
-
-        var password = _credentialService.GetPassword();
-        if (!string.IsNullOrEmpty(password))
-            PasswordEntry.Password = password;
-
-        UpdateStatus();
+        UpdatePrivateUrlWarning(_settingsService.ServerUrl);
     }
 
-    private void OnSaveCredentials(object sender, RoutedEventArgs e)
+    private void Render()
     {
-        var serverUrl = ServerUrlEntry.Text.Trim();
+        var signedIn = _settingsService.ShouldSync();
+        SignedOutPanel.Visibility = signedIn ? Visibility.Collapsed : Visibility.Visible;
+        SignedInPanel.Visibility = signedIn ? Visibility.Visible : Visibility.Collapsed;
+
+        if (signedIn)
+        {
+            var info = ProviderInfo.ForIdentityProvider(_settingsService.AuthIdentityProvider);
+            ConnectedProviderIcon.Source = LoadIcon(info.IconKey);
+            ConnectedProviderText.Text = $"Signed in with {info.Label}";
+            ConnectedEmailText.Text = _settingsService.AuthEmail;
+            UpdateSyncStatus();
+        }
+    }
+
+    private void UpdateSyncStatus()
+    {
+        if (_settingsService.SyncInProgress)
+        {
+            SyncStatusText.Text = "Syncing\u2026";
+            ForceSyncButton.IsEnabled = false;
+            return;
+        }
+
+        ForceSyncButton.IsEnabled = true;
+
+        var lastError = _settingsService.LastSyncError;
+        var lastSuccess = _settingsService.LastSyncSuccess;
+
+        if (!string.IsNullOrEmpty(lastError))
+        {
+            SyncStatusText.Text = $"Error: {lastError}";
+        }
+        else if (!string.IsNullOrEmpty(lastSuccess))
+        {
+            if (DateTimeOffset.TryParse(lastSuccess, out var dt))
+                SyncStatusText.Text = $"Last sync: {dt.ToLocalTime():g}";
+            else
+                SyncStatusText.Text = $"Last sync: {lastSuccess}";
+        }
+        else
+        {
+            SyncStatusText.Text = $"Ready to sync with {_settingsService.ServerUrl}";
+        }
+    }
+
+    private void UpdatePrivateUrlWarning(string url)
+    {
+        PrivateUrlWarning.Visibility = ServerUrlHelper.IsPrivateHost(url)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private void OnServerUrlChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (!_loaded) return;
+        UpdatePrivateUrlWarning(ServerUrlEntry.Text);
+    }
+
+    private void OnSaveServerUrl(object sender, RoutedEventArgs e)
+    {
+        var url = ServerUrlEntry.Text.Trim();
+        if (string.IsNullOrEmpty(url)) return;
+        _settingsService.ServerUrl = url;
+        Logger.Instance.Log($"🔵 INFO PreferencesWindow server URL saved: {url}");
+    }
+
+    private async void OnSignInEmail(object sender, RoutedEventArgs e)
+    {
         var email = EmailEntry.Text.Trim();
         var password = PasswordEntry.Password;
+        var server = ServerUrlEntry.Text.Trim();
 
-        if (string.IsNullOrEmpty(serverUrl))
+        if (string.IsNullOrEmpty(server))
         {
-            SyncStatusText.Text = "Enter a server URL";
+            SignInStatusText.Text = "Enter a server URL";
             return;
         }
-
         if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
         {
-            SyncStatusText.Text = "Enter both email and password";
+            SignInStatusText.Text = "Enter both email and password";
             return;
         }
 
-        _settingsService.ServerUrl = serverUrl;
-        _settingsService.Email = email;
-        _credentialService.SetPassword(password);
-        _settingsService.SyncEnabled = true;
+        _settingsService.ServerUrl = server;
 
-        UpdateStatus();
-        Logger.Instance.Log("🔵 INFO PreferencesWindow credentials saved");
+        SignInStatusText.Text = "Signing in\u2026";
+        SignInButton.IsEnabled = false;
+        try
+        {
+            var result = await _authService.ExchangePasswordAsync(email, password);
+            if (!result.Success)
+            {
+                SignInStatusText.Text = result.Error ?? "Sign-in failed.";
+                return;
+            }
+            PasswordEntry.Password = "";
+            EmailEntry.Text = "";
+            SignInStatusText.Text = "";
+        }
+        finally
+        {
+            SignInButton.IsEnabled = true;
+        }
     }
 
-    private void OnClearCredentials(object sender, RoutedEventArgs e)
+    private void OnSignInGoogle(object sender, RoutedEventArgs e) =>
+        StartBrowserFlow("google_oauth2");
+
+    private void OnSignInMicrosoft(object sender, RoutedEventArgs e) =>
+        StartBrowserFlow("microsoft_graph");
+
+    private void OnSignUp(object sender, RoutedEventArgs e) =>
+        StartBrowserFlow("register");
+
+    private void StartBrowserFlow(string providerPath)
+    {
+        var server = ServerUrlEntry.Text.Trim();
+        if (string.IsNullOrEmpty(server))
+        {
+            SignInStatusText.Text = "Enter a server URL";
+            return;
+        }
+        _settingsService.ServerUrl = server;
+
+        if (ServerUrlHelper.IsPrivateHost(server))
+        {
+            SignInStatusText.Text = "OAuth won't work with a LAN / localhost URL. Use email/password or an ngrok tunnel.";
+            return;
+        }
+
+        SignInStatusText.Text = "Opening browser\u2026 complete sign-in there, then return here.";
+        _authService.StartBrowserLogin(providerPath);
+    }
+
+    private async void OnSignOut(object sender, RoutedEventArgs e)
     {
         var result = MessageBox.Show(
-            "Are you sure you want to clear your email and password?",
-            "Clear Credentials?",
+            "Sign out of Save Button on this device?",
+            "Sign Out?",
             MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
-
+            MessageBoxImage.Question);
         if (result != MessageBoxResult.Yes) return;
 
-        _settingsService.SyncEnabled = false;
-        _settingsService.Email = "";
-        _credentialService.ClearPassword();
-
-        EmailEntry.Text = "";
-        PasswordEntry.Password = "";
-
-        UpdateStatus();
-        Logger.Instance.Log("🔵 INFO PreferencesWindow credentials cleared");
+        await _authService.SignOutAsync();
     }
 
     private async void OnForceSync(object sender, RoutedEventArgs e)
@@ -115,54 +236,17 @@ public partial class PreferencesWindow : Window
                 _settingsService.LastSyncSuccess = DateTimeOffset.UtcNow.ToString("o");
             }
 
-            UpdateStatus();
+            UpdateSyncStatus();
         }
         catch (Exception ex)
         {
             _settingsService.LastSyncError = ex.Message;
-            UpdateStatus();
+            UpdateSyncStatus();
         }
         finally
         {
             _settingsService.SyncInProgress = false;
             ForceSyncButton.IsEnabled = true;
-        }
-    }
-
-    private void UpdateStatus()
-    {
-        if (_settingsService.SyncInProgress)
-        {
-            SyncStatusText.Text = "Syncing\u2026";
-            ForceSyncButton.IsEnabled = false;
-            return;
-        }
-
-        ForceSyncButton.IsEnabled = true;
-
-        if (!_settingsService.ShouldSync())
-        {
-            SyncStatusText.Text = "Not configured";
-            return;
-        }
-
-        var lastError = _settingsService.LastSyncError;
-        var lastSuccess = _settingsService.LastSyncSuccess;
-
-        if (!string.IsNullOrEmpty(lastError))
-        {
-            SyncStatusText.Text = $"Error: {lastError}";
-        }
-        else if (!string.IsNullOrEmpty(lastSuccess))
-        {
-            if (DateTimeOffset.TryParse(lastSuccess, out var dt))
-                SyncStatusText.Text = $"Last sync: {dt.ToLocalTime():g}";
-            else
-                SyncStatusText.Text = $"Last sync: {lastSuccess}";
-        }
-        else
-        {
-            SyncStatusText.Text = $"Ready to sync with {_settingsService.ServerUrl}";
         }
     }
 

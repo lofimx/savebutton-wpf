@@ -49,7 +49,17 @@ All data is stored in `%USERPROFILE%\.kaya\`:
 | `.kaya/words/` | Vocabulary/word sync data |
 | `.kaya/settings.json` | App settings (server URL, email, sync state) |
 
-Passwords are stored in Windows Credential Manager, not on disk.
+Refresh tokens are stored in Windows Credential Manager (target: `Save Button Refresh Token`), not on disk. Access tokens live in memory only.
+
+## URL scheme registration
+
+The `savebutton://` URL scheme (used for OAuth sign-in callbacks) is registered automatically on every primary-instance startup — no action required. The registration is written to `HKCU\Software\Classes\savebutton` and points at the currently running executable, so dev builds (`dotnet run`) and installed builds each register themselves.
+
+To remove the entry manually (e.g. after uninstall or to re-point):
+
+```powershell
+reg delete HKCU\Software\Classes\savebutton /f
+```
 
 ## Project Structure
 

@@ -15,7 +15,10 @@ public class Logger
     private Logger()
     {
         Directory.CreateDirectory(KayaDir);
-        _writer = new StreamWriter(LogPath, append: true) { AutoFlush = true };
+        // Open with FileShare.ReadWrite so a second instance (e.g. a savebutton:// URL
+        // handler forwarder) can append to the same log without being locked out.
+        var stream = new FileStream(LogPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+        _writer = new StreamWriter(stream) { AutoFlush = true };
     }
 
     public void Log(string message)

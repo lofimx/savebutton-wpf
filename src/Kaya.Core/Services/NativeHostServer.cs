@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text;
-using System.Text.Json;
 using Kaya.Core.Models;
 
 namespace Kaya.Core.Services;
@@ -11,7 +10,6 @@ public class NativeHostServer
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kaya");
 
     private readonly SettingsService _settingsService;
-    private readonly CredentialService _credentialService;
     private HttpListener? _listener;
     private CancellationTokenSource? _cts;
 
@@ -20,7 +18,6 @@ public class NativeHostServer
     public NativeHostServer(SettingsService settingsService, CredentialService credentialService)
     {
         _settingsService = settingsService;
-        _credentialService = credentialService;
     }
 
     public void Start()
@@ -174,33 +171,10 @@ public class NativeHostServer
 
     private async Task HandleConfig(HttpListenerRequest request, HttpListenerResponse response)
     {
-        using var reader = new StreamReader(request.InputStream, request.ContentEncoding);
-        var json = await reader.ReadToEndAsync();
-
-        if (string.IsNullOrEmpty(json))
-        {
-            await WriteResponse(response, 400, "application/json", "{\"error\":\"Empty request body\"}");
-            return;
-        }
-
-        var config = JsonSerializer.Deserialize<ConfigPayload>(json);
-        if (config is null)
-        {
-            await WriteResponse(response, 400, "application/json", "{\"error\":\"Invalid JSON\"}");
-            return;
-        }
-
-        if (!string.IsNullOrEmpty(config.Server))
-            _settingsService.ServerUrl = config.Server;
-        if (!string.IsNullOrEmpty(config.Email))
-            _settingsService.Email = config.Email;
-        if (!string.IsNullOrEmpty(config.Password))
-            _credentialService.SetPassword(config.Password);
-
-        _settingsService.SyncEnabled = true;
-
-        await WriteResponse(response, 200, "application/json", "{\"ok\":true}");
-        Logger.Instance.Log("🔵 INFO NativeHostServer config updated via POST /config");
+        Logger.Instance.Log("🟠 WARN NativeHostServer /config is deprecated; returning 410 Gone");
+        response.Headers.Add("Deprecation", "true");
+        await WriteResponse(response, 410, "application/json",
+            "{\"error\":\"deprecated\",\"message\":\"The /config endpoint is no longer supported. Configure Save Button in its Preferences window.\"}");
     }
 
     private static async Task WriteResponse(HttpListenerResponse response, int statusCode, string contentType, string body)
@@ -210,12 +184,5 @@ public class NativeHostServer
         var bytes = Encoding.UTF8.GetBytes(body);
         response.ContentLength64 = bytes.Length;
         await response.OutputStream.WriteAsync(bytes);
-    }
-
-    private class ConfigPayload
-    {
-        public string? Server { get; set; }
-        public string? Email { get; set; }
-        public string? Password { get; set; }
     }
 }

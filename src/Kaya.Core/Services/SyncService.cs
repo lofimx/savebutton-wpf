@@ -1,5 +1,5 @@
+using System.Net;
 using System.Net.Http.Headers;
-using System.Text;
 using Kaya.Core.Models;
 
 namespace Kaya.Core.Services;
@@ -23,16 +23,16 @@ public class SyncService
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kaya", "words");
 
     private readonly SettingsService _settingsService;
-    private readonly CredentialService _credentialService;
+    private readonly AuthService _authService;
     private readonly HttpClient _httpClient;
     private bool _isSyncing;
 
     public bool IsSyncing => _isSyncing;
 
-    public SyncService(SettingsService settingsService, CredentialService credentialService)
+    public SyncService(SettingsService settingsService, AuthService authService)
     {
         _settingsService = settingsService;
-        _credentialService = credentialService;
+        _authService = authService;
         _httpClient = new HttpClient();
     }
 
@@ -44,66 +44,28 @@ public class SyncService
         if (!_settingsService.ShouldSync())
             return new SyncResult();
 
-        var password = _credentialService.GetPassword();
-        if (string.IsNullOrEmpty(password))
+        var authHeader = await _authService.GetAuthHeaderAsync();
+        if (authHeader is null)
+        {
+            Logger.Instance.Log("🟠 WARN SyncService no auth header; clearing sign-in state");
+            _authService.ClearLocalAuth();
             return new SyncResult();
+        }
 
         _isSyncing = true;
         var result = new SyncResult();
 
         try
         {
-            var baseUrl = _settingsService.ServerUrl;
-            var email = _settingsService.Email;
-            var authHeader = CreateAuthHeader(email, password);
+            var baseUrl = _settingsService.NormalizedServerUrl;
+            var email = _settingsService.AuthEmail;
 
-            // Ensure directories exist
             Directory.CreateDirectory(LocalAngaDir);
             Directory.CreateDirectory(LocalMetaDir);
 
-            // Sync anga
-            var serverFiles = await FetchFileList(baseUrl, email, "anga", authHeader);
-            var localFiles = FetchLocalFiles(LocalAngaDir);
-
-            var toDownload = serverFiles.Except(localFiles).ToList();
-            var toUpload = localFiles.Except(serverFiles).ToList();
-
-            foreach (var filename in toDownload)
-            {
-                try
-                {
-                    await DownloadFile(baseUrl, email, "anga", filename, LocalAngaDir, authHeader);
-                    result.Downloaded.Add(filename);
-                }
-                catch (Exception e)
-                {
-                    result.Errors.Add(new SyncError(filename, "download", e.Message));
-                }
-            }
-
-            foreach (var filename in toUpload)
-            {
-                try
-                {
-                    if (!new Filename(filename).IsValid())
-                    {
-                        result.Errors.Add(new SyncError(filename, "upload", "Filename contains URL-illegal characters"));
-                        continue;
-                    }
-                    await UploadFile(baseUrl, email, "anga", filename, LocalAngaDir, authHeader);
-                    result.Uploaded.Add(filename);
-                }
-                catch (Exception e)
-                {
-                    result.Errors.Add(new SyncError(filename, "upload", e.Message));
-                }
-            }
-
-            // Sync meta
-            await SyncDirectory(baseUrl, email, "meta", LocalMetaDir, authHeader, result, "*.toml");
-
-            // Sync words
-            await SyncWords(baseUrl, email, authHeader, result);
+            await SyncDirectory(baseUrl, email, "anga", LocalAngaDir, result);
+            await SyncDirectory(baseUrl, email, "meta", LocalMetaDir, result, "*.toml");
+            await SyncWords(baseUrl, email, result);
         }
         finally
         {
@@ -114,11 +76,11 @@ public class SyncService
     }
 
     private async Task SyncDirectory(string baseUrl, string email, string category,
-        string localDir, AuthenticationHeaderValue authHeader, SyncResult result, string? filter = null)
+        string localDir, SyncResult result, string? filter = null)
     {
         Directory.CreateDirectory(localDir);
 
-        var serverFiles = await FetchFileList(baseUrl, email, category, authHeader);
+        var serverFiles = await FetchFileList(baseUrl, email, category);
         var localFiles = FetchLocalFiles(localDir, filter);
 
         var toDownload = serverFiles.Except(localFiles).ToList();
@@ -128,7 +90,7 @@ public class SyncService
         {
             try
             {
-                await DownloadFile(baseUrl, email, category, filename, localDir, authHeader);
+                await DownloadFile(baseUrl, email, category, filename, localDir);
                 result.Downloaded.Add(filename);
             }
             catch (Exception e)
@@ -146,7 +108,7 @@ public class SyncService
                     result.Errors.Add(new SyncError(filename, "upload", "Filename contains URL-illegal characters"));
                     continue;
                 }
-                await UploadFile(baseUrl, email, category, filename, localDir, authHeader);
+                await UploadFile(baseUrl, email, category, filename, localDir);
                 result.Uploaded.Add(filename);
             }
             catch (Exception e)
@@ -156,17 +118,15 @@ public class SyncService
         }
     }
 
-    private async Task SyncWords(string baseUrl, string email,
-        AuthenticationHeaderValue authHeader, SyncResult result)
+    private async Task SyncWords(string baseUrl, string email, SyncResult result)
     {
         Directory.CreateDirectory(LocalWordsDir);
 
-        var serverWords = await FetchFileList(baseUrl, email, "words", authHeader);
+        var serverWords = await FetchFileList(baseUrl, email, "words");
         var localWords = FetchLocalDirectories(LocalWordsDir);
 
         Logger.Instance.Log($"🔵 INFO Words - Server: {serverWords.Count}, Local: {localWords.Count}");
 
-        // If counts match, skip — no new words to download
         if (serverWords.Count == localWords.Count)
         {
             Logger.Instance.Log("🟢 DEBUG Words counts match, skipping words sync");
@@ -178,22 +138,21 @@ public class SyncService
 
         foreach (var word in wordsToDownload)
         {
-            await DownloadWord(baseUrl, email, word, authHeader, result);
+            await DownloadWord(baseUrl, email, word, result);
         }
     }
 
-    private async Task DownloadWord(string baseUrl, string email, string word,
-        AuthenticationHeaderValue authHeader, SyncResult result)
+    private async Task DownloadWord(string baseUrl, string email, string word, SyncResult result)
     {
         var wordDir = Path.Combine(LocalWordsDir, word);
         Directory.CreateDirectory(wordDir);
 
-        var serverFiles = await FetchFileList(baseUrl, email, $"words/{Uri.EscapeDataString(word)}", authHeader);
+        var serverFiles = await FetchFileList(baseUrl, email, $"words/{Uri.EscapeDataString(word)}");
         foreach (var filename in serverFiles)
         {
             try
             {
-                await DownloadFile(baseUrl, email, $"words/{Uri.EscapeDataString(word)}", filename, wordDir, authHeader);
+                await DownloadFile(baseUrl, email, $"words/{Uri.EscapeDataString(word)}", filename, wordDir);
                 result.Downloaded.Add($"{word}/{filename}");
             }
             catch (Exception e)
@@ -203,19 +162,15 @@ public class SyncService
         }
     }
 
-    private async Task<List<string>> FetchFileList(string baseUrl, string email,
-        string category, AuthenticationHeaderValue authHeader)
+    private async Task<List<string>> FetchFileList(string baseUrl, string email, string category)
     {
         var encodedEmail = Uri.EscapeDataString(email);
         var url = $"{baseUrl}/api/v1/{encodedEmail}/{category}";
 
-        var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Authorization = authHeader;
-
         try
         {
-            var response = await _httpClient.SendAsync(request);
-            if (!response.IsSuccessStatusCode)
+            using var response = await SendWithRetryAsync(() => new HttpRequestMessage(HttpMethod.Get, url));
+            if (response is null || !response.IsSuccessStatusCode)
                 return [];
 
             var content = await response.Content.ReadAsStringAsync();
@@ -228,16 +183,14 @@ public class SyncService
     }
 
     private async Task DownloadFile(string baseUrl, string email, string category,
-        string filename, string localDir, AuthenticationHeaderValue authHeader)
+        string filename, string localDir)
     {
         var encodedEmail = Uri.EscapeDataString(email);
         var encodedFilename = Uri.EscapeDataString(filename);
         var url = $"{baseUrl}/api/v1/{encodedEmail}/{category}/{encodedFilename}";
 
-        var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Authorization = authHeader;
-
-        var response = await _httpClient.SendAsync(request);
+        using var response = await SendWithRetryAsync(() => new HttpRequestMessage(HttpMethod.Get, url))
+            ?? throw new HttpRequestException($"No response for {url}");
         response.EnsureSuccessStatusCode();
 
         var data = await response.Content.ReadAsByteArrayAsync();
@@ -246,7 +199,7 @@ public class SyncService
     }
 
     private async Task UploadFile(string baseUrl, string email, string category,
-        string filename, string localDir, AuthenticationHeaderValue authHeader)
+        string filename, string localDir)
     {
         var localPath = Path.Combine(localDir, filename);
         var fileBytes = await File.ReadAllBytesAsync(localPath);
@@ -255,24 +208,60 @@ public class SyncService
         var encodedFilename = Uri.EscapeDataString(filename);
         var url = $"{baseUrl}/api/v1/{encodedEmail}/{category}/{encodedFilename}";
 
-        var content = new MultipartFormDataContent();
-        var fileContent = new ByteArrayContent(fileBytes);
-        fileContent.Headers.ContentType = new MediaTypeHeaderValue(MimeTypeFor(filename));
-        content.Add(fileContent, "file", filename);
+        using var response = await SendWithRetryAsync(() =>
+        {
+            var content = new MultipartFormDataContent();
+            var fileContent = new ByteArrayContent(fileBytes);
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(MimeTypeFor(filename));
+            content.Add(fileContent, "file", filename);
+            return new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+        }) ?? throw new HttpRequestException($"No response for {url}");
 
-        var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
-        request.Headers.Authorization = authHeader;
-
-        var response = await _httpClient.SendAsync(request);
         var statusCode = (int)response.StatusCode;
         if (statusCode != 200 && statusCode != 201 && statusCode != 409 && statusCode != 422)
             response.EnsureSuccessStatusCode();
     }
 
-    private static AuthenticationHeaderValue CreateAuthHeader(string email, string password)
+    /// <summary>
+    /// Send an HTTP request with a Bearer header from AuthService. On 401, refresh the token
+    /// once and retry. If the second attempt also 401s, clear local auth state and return null.
+    /// </summary>
+    private async Task<HttpResponseMessage?> SendWithRetryAsync(Func<HttpRequestMessage> requestFactory)
     {
-        var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{email}:{password}"));
-        return new AuthenticationHeaderValue("Basic", credentials);
+        var header = await _authService.GetAuthHeaderAsync();
+        if (header is null) return null;
+
+        var request = requestFactory();
+        request.Headers.Authorization = header;
+        var response = await _httpClient.SendAsync(request);
+
+        if (response.StatusCode != HttpStatusCode.Unauthorized)
+            return response;
+
+        response.Dispose();
+        Logger.Instance.Log("🟠 WARN SyncService got 401; refreshing token");
+
+        var refreshed = await _authService.RefreshAccessTokenAsync();
+        if (string.IsNullOrEmpty(refreshed))
+        {
+            Logger.Instance.Log("🟠 WARN SyncService refresh failed; clearing auth state");
+            _authService.ClearLocalAuth();
+            return null;
+        }
+
+        var retry = requestFactory();
+        retry.Headers.Authorization = new AuthenticationHeaderValue("Bearer", refreshed);
+        var retryResponse = await _httpClient.SendAsync(retry);
+
+        if (retryResponse.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            retryResponse.Dispose();
+            Logger.Instance.Log("🟠 WARN SyncService retry also 401; clearing auth state");
+            _authService.ClearLocalAuth();
+            return null;
+        }
+
+        return retryResponse;
     }
 
     private static List<string> FetchLocalFiles(string directory, string? filter = null)

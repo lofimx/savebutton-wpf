@@ -23,16 +23,43 @@ public class SettingsService
         set { _data.ServerUrl = value; Save(); Changed?.Invoke(); }
     }
 
+    public string NormalizedServerUrl => ServerUrlHelper.Normalize(ServerUrl);
+
     public string Email
     {
         get => _data.Email ?? "";
         set { _data.Email = value; Save(); Changed?.Invoke(); }
     }
 
+    /// <summary>Retained for legacy settings files only. Do not use as a "signed in" signal.</summary>
     public bool SyncEnabled
     {
         get => _data.SyncEnabled;
         set { _data.SyncEnabled = value; Save(); Changed?.Invoke(); }
+    }
+
+    public string AuthMethod
+    {
+        get => _data.AuthMethod ?? "";
+        set { _data.AuthMethod = value; Save(); Changed?.Invoke(); }
+    }
+
+    public string AuthEmail
+    {
+        get => _data.AuthEmail ?? "";
+        set { _data.AuthEmail = value; Save(); Changed?.Invoke(); }
+    }
+
+    public string AuthIdentityProvider
+    {
+        get => _data.AuthIdentityProvider ?? "";
+        set { _data.AuthIdentityProvider = value; Save(); Changed?.Invoke(); }
+    }
+
+    public string AuthPkceVerifier
+    {
+        get => _data.AuthPkceVerifier ?? "";
+        set { _data.AuthPkceVerifier = value; Save(); Changed?.Invoke(); }
     }
 
     public string LastSyncError
@@ -65,12 +92,36 @@ public class SettingsService
 
     public bool ShouldSync()
     {
-        return SyncEnabled;
+        return AuthState.IsSignedIn(AuthMethod, AuthEmail);
     }
 
     public bool IsCustomServerConfigured()
     {
         return ServerUrl != DefaultServerUrl && ServerUrl.Length > 0;
+    }
+
+    /// <summary>
+    /// Atomically set the signed-in auth state. All four fields are written in one Save().
+    /// </summary>
+    public void SetAuthState(string method, string email, string identityProvider)
+    {
+        _data.AuthMethod = method;
+        _data.AuthEmail = email;
+        _data.AuthIdentityProvider = identityProvider;
+        Save();
+        Changed?.Invoke();
+    }
+
+    /// <summary>Atomically clear all signed-in auth state. Does not touch refresh token.</summary>
+    public void ClearAuthState()
+    {
+        _data.AuthMethod = "";
+        _data.AuthEmail = "";
+        _data.AuthIdentityProvider = "";
+        _data.AuthPkceVerifier = "";
+        _data.SyncEnabled = false;
+        Save();
+        Changed?.Invoke();
     }
 
     private SettingsData Load()
@@ -98,5 +149,9 @@ public class SettingsService
         public string? LastSyncError { get; set; }
         public string? LastSyncSuccess { get; set; }
         public int? NativeHostPort { get; set; }
+        public string? AuthMethod { get; set; }
+        public string? AuthEmail { get; set; }
+        public string? AuthIdentityProvider { get; set; }
+        public string? AuthPkceVerifier { get; set; }
     }
 }

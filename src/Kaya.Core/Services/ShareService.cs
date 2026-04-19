@@ -1,5 +1,3 @@
-using System.Net.Http.Headers;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -10,13 +8,13 @@ public record ShareResult(bool Ok, string ShareUrl = "");
 public class ShareService
 {
     private readonly SettingsService _settingsService;
-    private readonly CredentialService _credentialService;
+    private readonly AuthService _authService;
     private readonly HttpClient _httpClient;
 
-    public ShareService(SettingsService settingsService, CredentialService credentialService)
+    public ShareService(SettingsService settingsService, AuthService authService)
     {
         _settingsService = settingsService;
-        _credentialService = credentialService;
+        _authService = authService;
         _httpClient = new HttpClient();
     }
 
@@ -29,13 +27,13 @@ public class ShareService
 
     public async Task<ShareResult> ShareAsync(string filename)
     {
-        var baseUrl = _settingsService.ServerUrl;
-        var email = _settingsService.Email;
-        var password = _credentialService.GetPassword();
+        var baseUrl = _settingsService.NormalizedServerUrl;
+        var email = _settingsService.AuthEmail;
 
-        if (string.IsNullOrEmpty(password))
+        var authHeader = await _authService.GetAuthHeaderAsync();
+        if (authHeader is null)
         {
-            Logger.Instance.Log("🟠 WARN ShareService no password configured");
+            Logger.Instance.Log("🟠 WARN ShareService no auth token available");
             return new ShareResult(false);
         }
 
@@ -43,8 +41,7 @@ public class ShareService
         Logger.Instance.Log($"🔵 INFO ShareService sharing \"{filename}\" via {baseUrl}");
 
         var request = new HttpRequestMessage(HttpMethod.Post, url);
-        var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{email}:{password}"));
-        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+        request.Headers.Authorization = authHeader;
 
         try
         {

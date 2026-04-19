@@ -5,18 +5,21 @@ public class SyncManager : IDisposable
     private const int SyncIntervalSeconds = 60;
 
     private readonly SettingsService _settingsService;
+    private readonly AuthService _authService;
     private readonly SyncService _syncService;
     private Timer? _timer;
     private bool _isRunning;
 
-    public SyncManager(SettingsService settingsService, CredentialService credentialService)
+    public SyncManager(SettingsService settingsService, AuthService authService)
     {
         _settingsService = settingsService;
-        _syncService = new SyncService(settingsService, credentialService);
+        _authService = authService;
+        _syncService = new SyncService(settingsService, authService);
     }
 
     public SyncService SyncService => _syncService;
     public SettingsService SettingsService => _settingsService;
+    public AuthService AuthService => _authService;
 
     public void Start()
     {

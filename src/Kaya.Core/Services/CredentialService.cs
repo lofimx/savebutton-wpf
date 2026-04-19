@@ -5,13 +5,16 @@ namespace Kaya.Core.Services;
 
 public class CredentialService
 {
-    private const string TargetName = "Kaya Server Password";
+    private const string RefreshTokenTarget = "Save Button Refresh Token";
 
-    public string? GetPassword()
+    // Legacy target names from pre-OAuth builds; silently removed at startup.
+    private static readonly string[] LegacyTargets = ["Kaya Server Password"];
+
+    public string? GetRefreshToken()
     {
         try
         {
-            var credential = CredentialManager.GetCredentials(TargetName);
+            var credential = CredentialManager.GetCredentials(RefreshTokenTarget);
             return credential?.Password;
         }
         catch
@@ -20,12 +23,12 @@ public class CredentialService
         }
     }
 
-    public bool SetPassword(string password)
+    public bool SetRefreshToken(string token)
     {
         try
         {
-            var credential = new NetworkCredential(TargetName, password);
-            CredentialManager.SaveCredentials(TargetName, credential);
+            var credential = new NetworkCredential(RefreshTokenTarget, token);
+            CredentialManager.SaveCredentials(RefreshTokenTarget, credential);
             return true;
         }
         catch
@@ -34,16 +37,32 @@ public class CredentialService
         }
     }
 
-    public bool ClearPassword()
+    public bool ClearRefreshToken()
     {
         try
         {
-            CredentialManager.RemoveCredentials(TargetName);
+            CredentialManager.RemoveCredentials(RefreshTokenTarget);
             return true;
         }
         catch
         {
             return false;
+        }
+    }
+
+    public void RemoveLegacyCredentials()
+    {
+        foreach (var target in LegacyTargets)
+        {
+            try
+            {
+                CredentialManager.RemoveCredentials(target);
+                Logger.Instance.Log($"🔵 INFO CredentialService removed legacy credential: {target}");
+            }
+            catch
+            {
+                // Not present — fine.
+            }
         }
     }
 }

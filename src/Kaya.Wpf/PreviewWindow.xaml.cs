@@ -18,7 +18,7 @@ public partial class PreviewWindow : Window
     private readonly SearchResult _result;
     private readonly FileService _fileService = new();
     private readonly SettingsService _settingsService;
-    private readonly CredentialService _credentialService;
+    private readonly AuthService _authService;
     private readonly TagsList _tagsList;
     private DispatcherTimer? _toastTimer;
     private PdfDocument? _pdfDocument;
@@ -28,14 +28,14 @@ public partial class PreviewWindow : Window
     public Action? OnSaveComplete { get; set; }
 
     public PreviewWindow(SearchResult result, SettingsService settingsService,
-        CredentialService credentialService)
+        AuthService authService)
     {
         InitializeComponent();
         this.ApplyDarkTitleBar();
 
         _result = result;
         _settingsService = settingsService;
-        _credentialService = credentialService;
+        _authService = authService;
 
         WindowTitleText.Text = result.DisplayTitle;
 
@@ -181,13 +181,6 @@ public partial class PreviewWindow : Window
         if (!_settingsService.ShouldSync())
         {
             Logger.Instance.Log("🟢 DEBUG PreviewWindow share disabled: user not logged in");
-            return;
-        }
-
-        var password = _credentialService.GetPassword();
-        if (string.IsNullOrEmpty(password))
-        {
-            Logger.Instance.Log("🟢 DEBUG PreviewWindow share disabled: no password");
             return;
         }
 
@@ -389,7 +382,7 @@ public partial class PreviewWindow : Window
 
         Logger.Instance.Log($"🔵 INFO PreviewWindow sharing \"{_result.Filename}\"");
 
-        var shareService = new ShareService(_settingsService, _credentialService);
+        var shareService = new ShareService(_settingsService, _authService);
         var result = await shareService.ShareAsync(_result.Filename);
 
         if (result.Ok)

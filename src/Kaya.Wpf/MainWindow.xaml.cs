@@ -223,7 +223,7 @@ public partial class MainWindow : Window
 
         var previewWindow = new PreviewWindow(result,
             SyncManager.SettingsService,
-            new CredentialService())
+            SyncManager.AuthService)
         {
             Owner = this,
             OnSaveComplete = RefreshSearch
@@ -252,7 +252,7 @@ public partial class MainWindow : Window
     {
         if (SyncManager is null) return;
 
-        var prefs = new PreferencesWindow(SyncManager.SettingsService, new CredentialService())
+        var prefs = new PreferencesWindow(SyncManager.SettingsService, SyncManager.AuthService)
         {
             Owner = this
         };

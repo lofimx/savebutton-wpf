@@ -20,6 +20,18 @@
                 Source="$(var.PublishDir)\SaveButton.exe"
                 KeyPath="yes" />
         </Component>
+        <Component Id="UrlSchemeRegistration" Guid="*">
+          <RegistryKey Root="HKCU" Key="Software\Classes\savebutton">
+            <RegistryValue Type="string" Value="URL:Save Button Protocol" />
+            <RegistryValue Name="URL Protocol" Type="string" Value="" />
+          </RegistryKey>
+          <RegistryKey Root="HKCU" Key="Software\Classes\savebutton\DefaultIcon">
+            <RegistryValue Type="string" Value="[INSTALLFOLDER]SaveButton.exe" />
+          </RegistryKey>
+          <RegistryKey Root="HKCU" Key="Software\Classes\savebutton\shell\open\command">
+            <RegistryValue Type="string" Value="&quot;[INSTALLFOLDER]SaveButton.exe&quot; &quot;%1&quot;" KeyPath="yes" />
+          </RegistryKey>
+        </Component>
       </Directory>
     </StandardDirectory>
 
@@ -55,6 +67,7 @@
 
     <Feature Id="Main" Title="Save Button" Level="1">
       <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="UrlSchemeRegistration" />
       <ComponentRef Id="StartMenuShortcut" />
       <Feature Id="DesktopShortcut" Title="Desktop Shortcut" Description="Create a shortcut on the desktop." Level="1">
         <ComponentRef Id="DesktopShortcut" />
