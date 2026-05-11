@@ -14,10 +14,30 @@ public class SearchResultTests
         }
 
         [Fact]
-        public void Should_identify_md_files_as_notes()
+        public void Should_identify_md_files_as_blurbs()
         {
-            Assert.Equal(AngaType.Note,
-                SearchResultFactory.DetermineType("2025-06-28T120000-note.md"));
+            Assert.Equal(AngaType.Blurb,
+                SearchResultFactory.DetermineType("2025-06-28T120000-blurb.md"));
+        }
+
+        [Fact]
+        public void Should_classify_legacy_note_md_files_as_blurbs()
+        {
+            // Existing user data created before the "note" → "blurb" rename
+            // uses the -note.md slug. The .md extension is the canonical
+            // signal — the slug is decorative — so legacy filenames must
+            // continue to be classified as blurbs.
+            Assert.Equal(AngaType.Blurb,
+                SearchResultFactory.DetermineType("2024-01-01T120000-note.md"));
+        }
+
+        [Fact]
+        public void Should_classify_quote_md_files_as_blurbs()
+        {
+            // The wxt extension's context menu writes -quote.md for text
+            // selections. These must also be classified as blurbs.
+            Assert.Equal(AngaType.Blurb,
+                SearchResultFactory.DetermineType("2024-01-01T120000-quote.md"));
         }
 
         [Fact]
@@ -33,15 +53,15 @@ public class SearchResultTests
         [Fact]
         public void Should_strip_timestamp_and_extension_replacing_hyphens_with_spaces()
         {
-            Assert.Equal("my important note",
-                SearchResultFactory.ExtractDisplayTitle("2025-06-28T120000-my-important-note.md"));
+            Assert.Equal("my important blurb",
+                SearchResultFactory.ExtractDisplayTitle("2025-06-28T120000-my-important-blurb.md"));
         }
 
         [Fact]
         public void Should_handle_nanosecond_timestamps()
         {
-            Assert.Equal("note",
-                SearchResultFactory.ExtractDisplayTitle("2026-01-21T164145_354000000-note.md"));
+            Assert.Equal("blurb",
+                SearchResultFactory.ExtractDisplayTitle("2026-01-21T164145_354000000-blurb.md"));
         }
 
         [Fact]
@@ -58,14 +78,14 @@ public class SearchResultTests
         public void Should_extract_date_from_filename_timestamp()
         {
             Assert.Equal("2025-06-28",
-                SearchResultFactory.ExtractDate("2025-06-28T120000-note.md"));
+                SearchResultFactory.ExtractDate("2025-06-28T120000-blurb.md"));
         }
 
         [Fact]
         public void Should_extract_date_from_nanosecond_timestamp()
         {
             Assert.Equal("2026-01-21",
-                SearchResultFactory.ExtractDate("2026-01-21T164145_354000000-note.md"));
+                SearchResultFactory.ExtractDate("2026-01-21T164145_354000000-blurb.md"));
         }
     }
 
@@ -85,23 +105,23 @@ public class SearchResultTests
         }
 
         [Fact]
-        public void Should_create_a_note_with_text_preview()
+        public void Should_create_a_blurb_with_text_preview()
         {
             var result = SearchResultFactory.FromFile(
-                "2025-06-28T120000-note.md",
-                "Hello world, this is my note");
+                "2025-06-28T120000-blurb.md",
+                "Hello world, this is my blurb");
 
-            Assert.Equal(AngaType.Note, result.Type);
-            Assert.Equal("Hello world, this is my note", result.ContentPreview);
-            Assert.Equal("note", result.DisplayTitle);
+            Assert.Equal(AngaType.Blurb, result.Type);
+            Assert.Equal("Hello world, this is my blurb", result.ContentPreview);
+            Assert.Equal("blurb", result.DisplayTitle);
         }
 
         [Fact]
-        public void Should_truncate_long_note_previews()
+        public void Should_truncate_long_blurb_previews()
         {
             var longText = new string('a', 150);
             var result = SearchResultFactory.FromFile(
-                "2025-06-28T120000-note.md", longText);
+                "2025-06-28T120000-blurb.md", longText);
 
             Assert.Equal(new string('a', 100) + "...", result.ContentPreview);
         }

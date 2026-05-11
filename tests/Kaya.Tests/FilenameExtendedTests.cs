@@ -41,7 +41,11 @@ public class FilenameExtendedTests
 
     [Theory]
     [InlineData("2025-06-28T120000-bookmark.url", AngaType.Bookmark)]
-    [InlineData("2025-06-28T120000-note.md", AngaType.Note)]
+    [InlineData("2025-06-28T120000-blurb.md", AngaType.Blurb)]
+    // Legacy -note.md (pre-rename) and -quote.md (wxt context-menu) still
+    // identify as blurbs based on the .md extension.
+    [InlineData("2024-01-01T120000-note.md", AngaType.Blurb)]
+    [InlineData("2024-01-01T120000-quote.md", AngaType.Blurb)]
     [InlineData("2025-06-28T120000-photo.png", AngaType.File)]
     [InlineData("2025-06-28T120000-document.pdf", AngaType.File)]
     public void AngaType_should_be_determined_by_extension(string filename, AngaType expected)
@@ -75,10 +79,10 @@ public class FilenameExtendedTests
     }
 
     [Fact]
-    public void DisplayTitle_for_note_should_strip_timestamp_extension_replace_hyphens()
+    public void DisplayTitle_for_blurb_should_strip_timestamp_extension_replace_hyphens()
     {
-        Assert.Equal("my cool note",
-            new Filename("2025-06-28T120000-my-cool-note.md").DisplayTitle);
+        Assert.Equal("my cool blurb",
+            new Filename("2025-06-28T120000-my-cool-blurb.md").DisplayTitle);
     }
 
     [Fact]

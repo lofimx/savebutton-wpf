@@ -1,6 +1,6 @@
 # Kaya for Windows (WPF)
 
-A bookmarking and notes app with server sync. WPF port of the GTK version, built with .NET 9.
+A bookmarking and blurbs app with server sync. WPF port of the GTK version, built with .NET 9.
 
 ## TODO
 
@@ -44,7 +44,7 @@ All data is stored in `%USERPROFILE%\.kaya\`:
 
 | Directory | Contents |
 |-----------|----------|
-| `.kaya/anga/` | Bookmarks (`.url`) and notes (`.md`) |
+| `.kaya/anga/` | Bookmarks (`.url`) and blurbs (`.md`) |
 | `.kaya/meta/` | Metadata files (`.toml`) |
 | `.kaya/words/` | Vocabulary/word sync data |
 | `.kaya/settings.json` | App settings (server URL, email, sync state) |

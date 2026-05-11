@@ -57,10 +57,10 @@
                         </Button>
                     </StackPanel>
 
-                    <!-- Note Content -->
-                    <ScrollViewer x:Name="NotePanel" Visibility="Collapsed"
+                    <!-- Blurb Content -->
+                    <ScrollViewer x:Name="BlurbPanel" Visibility="Collapsed"
                                   VerticalScrollBarVisibility="Auto" Padding="10">
-                        <TextBlock x:Name="NoteContentText" TextWrapping="Wrap" FontSize="14" />
+                        <TextBlock x:Name="BlurbContentText" TextWrapping="Wrap" FontSize="14" />
                     </ScrollViewer>
 
                     <!-- Image Content -->

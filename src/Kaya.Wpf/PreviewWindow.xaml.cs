@@ -65,8 +65,8 @@ public partial class PreviewWindow : Window
             case AngaType.Bookmark:
                 SetupBookmarkContent();
                 break;
-            case AngaType.Note:
-                SetupNoteContent();
+            case AngaType.Blurb:
+                SetupBlurbContent();
                 break;
             case AngaType.File:
                 SetupFileContent();
@@ -91,18 +91,18 @@ public partial class PreviewWindow : Window
         }
     }
 
-    private void SetupNoteContent()
+    private void SetupBlurbContent()
     {
-        NotePanel.Visibility = Visibility.Visible;
+        BlurbPanel.Visibility = Visibility.Visible;
         try
         {
             var contents = _fileService.ReadAngaContents(_result.Filename);
-            NoteContentText.Text = contents;
+            BlurbContentText.Text = contents;
         }
         catch (Exception e)
         {
-            Logger.Instance.Error($"🔴 ERROR PreviewWindow failed to read note: {e.Message}");
-            NoteContentText.Text = "Could not read note";
+            Logger.Instance.Error($"🔴 ERROR PreviewWindow failed to read blurb: {e.Message}");
+            BlurbContentText.Text = "Could not read blurb";
         }
     }
 

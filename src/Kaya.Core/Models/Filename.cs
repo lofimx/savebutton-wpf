@@ -33,7 +33,7 @@ public partial class Filename
     public AngaType AngaType => Extension switch
     {
         "url" => AngaType.Bookmark,
-        "md" => AngaType.Note,
+        "md" => AngaType.Blurb,
         _ => AngaType.File
     };
 
@@ -63,7 +63,7 @@ public partial class Filename
             // Files keep hyphens and extension verbatim
             if (AngaType == AngaType.File)
                 return withoutTimestamp;
-            // Notes and bookmarks: strip extension, replace hyphens with spaces
+            // Bookmarks and blurbs: strip extension, replace hyphens with spaces
             var lastDot = withoutTimestamp.LastIndexOf('.');
             var withoutExtension = lastDot > 0 ? withoutTimestamp[..lastDot] : withoutTimestamp;
             return withoutExtension.Replace('-', ' ');

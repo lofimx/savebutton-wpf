@@ -32,8 +32,8 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <!-- Bookmark/Note Entry -->
-            <TextBlock Grid.Row="0" Text="Enter bookmark or note" Margin="0,0,0,5" />
+            <!-- Bookmark/Blurb Entry -->
+            <TextBlock Grid.Row="0" Text="Enter bookmark or blurb" Margin="0,0,0,5" />
             <TextBox Grid.Row="1" x:Name="AngaText" Margin="0,0,0,10" />
 
             <!-- Tags Entry -->

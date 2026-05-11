@@ -27,8 +27,8 @@ public class Anga
         }
 
         return new AngaFile(
-            $"{timestamp.Plain}-note.md",
-            $"{timestamp.WithNanos}-note.md",
+            $"{timestamp.Plain}-blurb.md",
+            $"{timestamp.WithNanos}-blurb.md",
             _text
         );
     }

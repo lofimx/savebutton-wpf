@@ -20,12 +20,12 @@ public class AngaTests
     }
 
     [Fact]
-    public void Should_save_non_http_as_text_notes()
+    public void Should_save_non_http_as_text_blurbs()
     {
         var result = new Anga("42", Clock).ToAngaFile();
 
-        Assert.Equal("2005-08-09T123456-note.md", result.Filename);
-        Assert.Equal("2005-08-09T123456_000000000-note.md", result.FilenameWithNanos);
+        Assert.Equal("2005-08-09T123456-blurb.md", result.Filename);
+        Assert.Equal("2005-08-09T123456_000000000-blurb.md", result.FilenameWithNanos);
         Assert.Equal("42", result.Contents);
     }
 }

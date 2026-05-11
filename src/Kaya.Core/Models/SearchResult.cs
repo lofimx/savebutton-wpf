@@ -3,7 +3,7 @@ namespace Kaya.Core.Models;
 public enum AngaType
 {
     Bookmark,
-    Note,
+    Blurb,
     File
 }
 
@@ -45,7 +45,7 @@ public static class SearchResultFactory
         if (type == AngaType.Bookmark)
             return ExtractDomainFromUrl(contents);
 
-        if (type == AngaType.Note)
+        if (type == AngaType.Blurb)
         {
             const int maxPreviewLength = 100;
             return contents.Length > maxPreviewLength

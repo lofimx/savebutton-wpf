@@ -180,7 +180,7 @@ public partial class MainWindow : Window
     private static string TypeIconFor(AngaType type) => type switch
     {
         AngaType.Bookmark => "\U0001F517",  // link
-        AngaType.Note => "\U0001F4CC",       // pushpin
+        AngaType.Blurb => "\U0001F4CC",       // pushpin
         AngaType.File => "\U0001F4C4",       // page facing up
         _ => "\U0001F4C4"
     };
